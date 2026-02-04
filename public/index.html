@@ -181,6 +181,9 @@
   </div>
 
   <script>
+    // Configuration
+    const API_BASE_URL = 'https://energygrid-aggregator.onrender.com';
+
     // State
     let pollInterval = null;
     let startTime = null;
@@ -339,7 +342,7 @@
       powerHistory = [];
 
       try {
-        const response = await fetch('/api/aggregate', { method: 'POST' });
+        const response = await fetch(`${API_BASE_URL}/api/aggregate`, { method: 'POST' });
         if (response.ok) {
           pollInterval = setInterval(pollStatus, 500);
         }
@@ -351,7 +354,7 @@
 
     async function pollStatus() {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch(`${API_BASE_URL}/api/status`);
         const state = await response.json();
 
         updateProgress(state);
@@ -526,7 +529,7 @@
     }
 
     async function resetState() {
-      await fetch('/api/reset', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/reset`, { method: 'POST' });
       location.reload();
     }
 

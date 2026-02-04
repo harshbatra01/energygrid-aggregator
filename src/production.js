@@ -6,19 +6,19 @@
  */
 const express = require('express');
 const crypto = require('crypto');
-const path = require('path');
+const cors = require('cors');
 const { aggregateDeviceData } = require('./services/aggregator');
 const config = require('./config');
 
 const app = express();
 
-// For deployed version, use localhost API pointing to same server
-if (process.env.NODE_ENV === 'production') {
-    config.API_BASE_URL = '';  // Use same origin
-}
-
+app.use(cors()); // Enable CORS for cross-origin frontend (Vercel)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// For the backend instance in production, internal calls should hit itself
+const INTERNAL_PORT = process.env.PORT || 3000;
+config.API_BASE_URL = `http://localhost:${INTERNAL_PORT}`;
 
 // ==============================================================================
 // MOCK API SECTION (mounted at /device/*)
