@@ -6,13 +6,22 @@
  */
 const express = require('express');
 const crypto = require('crypto');
+const path = require('path');
 const cors = require('cors');
 const { aggregateDeviceData } = require('./services/aggregator');
 const config = require('./config');
 
 const app = express();
 
-app.use(cors()); // Enable CORS for cross-origin frontend (Vercel)
+// Configure CORS
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'signature', 'timestamp'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
