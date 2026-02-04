@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EnergyGrid - Solar Inverter Telemetry Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">EnergyGrid</h1>
+        <p class="tagline">Solar Inverter Telemetry Dashboard</p>
+      </div>
+      <div class="header-right">
+        <button class="btn-live-feed" id="liveFeedBtn" onclick="startAggregation()">
+          <span class="live-icon">⚡</span>
+          <span id="liveFeedText">Live Feed</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Stats Cards -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Total Power Output</span>
+            <span class="stat-icon green">⚡</span>
+          </div>
+          <div class="stat-value-row">
+            <span class="stat-value" id="totalPower">0</span>
+            <span class="stat-unit">kW</span>
+          </div>
+          <div class="stat-change positive" id="powerChange">↑ 0% from start</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Total Energy Today</span>
+            <span class="stat-icon green">🔋</span>
+          </div>
+          <div class="stat-value-row">
+            <span class="stat-value" id="totalEnergy">0.0</span>
+            <span class="stat-unit">MWh</span>
+          </div>
+          <div class="stat-change neutral" id="energyChange">Calculating...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Active Devices</span>
+            <span class="stat-icon green">📡</span>
+          </div>
+          <div class="stat-value-row">
+            <span class="stat-value" id="activeDevices">0</span>
+            <span class="stat-unit">of 500</span>
+          </div>
+          <div class="stat-change" id="deviceErrors">Waiting for data...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Avg Efficiency</span>
+            <span class="stat-icon green">📈</span>
+          </div>
+          <div class="stat-value-row">
+            <span class="stat-value" id="avgEfficiency">0.0</span>
+            <span class="stat-unit">%</span>
+          </div>
+          <div class="stat-change neutral" id="efficiencyChange">—</div>
+        </div>
+      </section>
+
+      <!-- Progress Section (shows during aggregation) -->
+      <section class="progress-section" id="progressSection" style="display: none;">
+        <div class="progress-header">
+          <span class="progress-title">Fetching Devices</span>
+          <span class="progress-percent" id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-details">
+          <span id="batchInfo">Batch 0 / 50</span>
+          <span id="rateInfo">~1 request/second</span>
+        </div>
+      </section>
+
+      <!-- Charts Section -->
+      <section class="charts-grid">
+        <div class="chart-card power-chart">
+          <div class="chart-header">
+            <h3>Real-Time Power Output</h3>
+            <p class="chart-subtitle">Last 10 hours of inverter performance</p>
+          </div>
+          <div class="chart-container">
+            <canvas id="powerChart"></canvas>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-dot blue"></span> Power (kW)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card status-chart">
+          <div class="chart-header">
+            <h3>Device Status</h3>
+            <p class="chart-subtitle">Inverter distribution</p>
+          </div>
+          <div class="donut-container">
+            <canvas id="statusChart"></canvas>
+            <div class="donut-legend" id="statusLegend">
+              <div class="legend-row">
+                <span class="legend-dot online"></span>
+                <span class="legend-label">Online</span>
+                <span class="legend-value" id="legendOnline">0</span>
+              </div>
+              <div class="legend-row">
+                <span class="legend-dot idle"></span>
+                <span class="legend-label">Idle</span>
+                <span class="legend-value" id="legendIdle">0</span>
+              </div>
+              <div class="legend-row">
+                <span class="legend-dot error"></span>
+                <span class="legend-label">Error</span>
+                <span class="legend-value" id="legendError">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top Performing Inverters -->
+      <section class="inverters-section">
+        <div class="section-header">
+          <div>
+            <h3>Top Performing Inverters</h3>
+            <p class="section-subtitle">Current session performance leaders</p>
+          </div>
+        </div>
+        <div class="inverters-table" id="invertersTable">
+          <div class="table-placeholder">
+            <p>Click "Live Feed" to start fetching device data</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- All Devices Grid (Optional - shows when expanded) -->
+      <section class="devices-section" id="devicesSection" style="display: none;">
+        <div class="section-header">
+          <div>
+            <h3>All Device Status</h3>
+            <p class="section-subtitle">Complete device grid</p>
+          </div>
+          <div class="devices-filter">
+            <button class="filter-btn active" onclick="filterDevices('all')">All</button>
+            <button class="filter-btn" onclick="filterDevices('online')">Online</button>
+            <button class="filter-btn" onclick="filterDevices('offline')">Offline</button>
+          </div>
+        </div>
+        <div class="devices-grid" id="devicesGrid"></div>
+      </section>
+    </main>
+
+    <!-- Footer Notification -->
+    <footer class="footer-notification" id="footerNotification" style="display: none;">
+      <div class="notification-content">
+        <span class="warning-icon">⚠️</span>
+        <span id="notificationText">3 devices require attention • Last synced 2 minutes ago</span>
+      </div>
+      <button class="view-details-btn" onclick="toggleDevicesSection()">View Details</button>
+    </footer>
+  </div>
+
+  <script>
+    // State
+    let pollInterval = null;
+    let startTime = null;
+    let timerInterval = null;
+    let allDevices = [];
+    let powerHistory = [];
+    let isAggregating = false;
+
+    // Charts
+    let powerChart = null;
+    let statusChart = null;
+
+    // Initialize charts on load
+    document.addEventListener('DOMContentLoaded', initCharts);
+
+    function initCharts() {
+      // Power Chart (simple canvas drawing)
+      const powerCanvas = document.getElementById('powerChart');
+      const powerCtx = powerCanvas.getContext('2d');
+      powerCanvas.width = powerCanvas.parentElement.clientWidth - 40;
+      powerCanvas.height = 200;
+      drawPowerChart(powerCtx, []);
+
+      // Status Donut Chart
+      const statusCanvas = document.getElementById('statusChart');
+      const statusCtx = statusCanvas.getContext('2d');
+      statusCanvas.width = 180;
+      statusCanvas.height = 180;
+      drawDonutChart(statusCtx, { online: 0, idle: 0, error: 0 });
+    }
+
+    function drawPowerChart(ctx, data) {
+      const canvas = ctx.canvas;
+      const width = canvas.width;
+      const height = canvas.height;
+      const padding = 40;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw grid lines
+      ctx.strokeStyle = '#1a2234';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (height - padding * 2) * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+      }
+
+      // Draw Y-axis labels
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px Inter';
+      ctx.textAlign = 'right';
+      const maxPower = Math.max(6000, ...data.map(d => d.power));
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (height - padding * 2) * i / 4;
+        const value = Math.round(maxPower - (maxPower * i / 4));
+        ctx.fillText(value.toString(), padding - 10, y + 4);
+      }
+
+      if (data.length < 2) return;
+
+      // Draw power line
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      data.forEach((point, i) => {
+        const x = padding + (width - padding * 2) * i / (data.length - 1);
+        const y = padding + (height - padding * 2) * (1 - point.power / maxPower);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Draw gradient fill
+      const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+      gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      data.forEach((point, i) => {
+        const x = padding + (width - padding * 2) * i / (data.length - 1);
+        const y = padding + (height - padding * 2) * (1 - point.power / maxPower);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(padding + (width - padding * 2), height - padding);
+      ctx.lineTo(padding, height - padding);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawDonutChart(ctx, data) {
+      const canvas = ctx.canvas;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = 70;
+      const lineWidth = 18;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const total = data.online + data.idle + data.error || 1;
+      const colors = {
+        online: '#22c55e',
+        idle: '#f59e0b',
+        error: '#ef4444'
+      };
+
+      let startAngle = -Math.PI / 2;
+
+      // Draw background ring
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1a2234';
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      // Draw segments
+      ['online', 'idle', 'error'].forEach(key => {
+        if (data[key] > 0) {
+          const sliceAngle = (data[key] / total) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+          ctx.strokeStyle = colors[key];
+          ctx.lineWidth = lineWidth;
+          ctx.lineCap = 'butt';
+          ctx.stroke();
+          startAngle += sliceAngle;
+        }
+      });
+
+      // Update legend
+      document.getElementById('legendOnline').textContent = data.online;
+      document.getElementById('legendIdle').textContent = data.idle;
+      document.getElementById('legendError').textContent = data.error;
+    }
+
+    async function startAggregation() {
+      if (isAggregating) return;
+      isAggregating = true;
+
+      const btn = document.getElementById('liveFeedBtn');
+      const btnText = document.getElementById('liveFeedText');
+      btn.classList.add('active');
+      btnText.textContent = 'Syncing...';
+
+      document.getElementById('progressSection').style.display = 'block';
+      document.getElementById('footerNotification').style.display = 'flex';
+
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 100);
+      allDevices = [];
+      powerHistory = [];
+
+      try {
+        const response = await fetch('/api/aggregate', { method: 'POST' });
+        if (response.ok) {
+          pollInterval = setInterval(pollStatus, 500);
+        }
+      } catch (error) {
+        console.error('Failed to start:', error);
+        resetUI();
+      }
+    }
+
+    async function pollStatus() {
+      try {
+        const response = await fetch('/api/status');
+        const state = await response.json();
+
+        updateProgress(state);
+        updateStats(state);
+        updateDevices(state.devices);
+        updateCharts();
+        updateInvertersTable();
+
+        if (!state.isRunning && state.progress >= 100) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          isAggregating = false;
+
+          document.getElementById('liveFeedBtn').classList.remove('active');
+          document.getElementById('liveFeedText').textContent = 'Refresh';
+          document.getElementById('progressSection').style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Poll error:', error);
+      }
+    }
+
+    function updateProgress(state) {
+      const progress = state.progress || 0;
+      document.getElementById('progressPercent').textContent = progress.toFixed(1) + '%';
+      document.getElementById('progressFill').style.width = progress + '%';
+      const batchNum = Math.ceil(progress / 2);
+      document.getElementById('batchInfo').textContent = `Batch ${batchNum} / 50`;
+    }
+
+    function updateStats(state) {
+      const online = state.onlineCount || 0;
+      const offline = state.offlineCount || 0;
+      const total = state.successCount || 0;
+
+      // Calculate mock values based on device data
+      const totalPower = allDevices.reduce((sum, d) => sum + parseFloat(d.power), 0);
+      const avgEfficiency = total > 0 ? (online / total * 100 * 0.94).toFixed(1) : 0;
+
+      document.getElementById('totalPower').textContent = Math.round(totalPower).toLocaleString();
+      document.getElementById('totalEnergy').textContent = (totalPower / 1000 * 8).toFixed(1);
+      document.getElementById('activeDevices').textContent = online;
+      document.getElementById('avgEfficiency').textContent = avgEfficiency;
+
+      // Update change indicators
+      if (total > 0) {
+        document.getElementById('powerChange').textContent = `↑ ${Math.round(totalPower / 20)}% from yesterday`;
+        document.getElementById('powerChange').className = 'stat-change positive';
+
+        const errors = offline;
+        if (errors > 0) {
+          document.getElementById('deviceErrors').textContent = `${errors} errors detected`;
+          document.getElementById('deviceErrors').className = 'stat-change negative';
+        } else {
+          document.getElementById('deviceErrors').textContent = 'All systems normal';
+          document.getElementById('deviceErrors').className = 'stat-change positive';
+        }
+
+        document.getElementById('notificationText').textContent =
+          `${offline} devices require attention • Last synced ${getElapsedTime()}`;
+      }
+    }
+
+    function updateDevices(devices) {
+      if (!devices || devices.length === 0) return;
+
+      const existingSNs = new Set(allDevices.map(d => d.sn));
+      devices.forEach(device => {
+        if (!existingSNs.has(device.sn)) {
+          // Add efficiency mock value
+          device.efficiency = Math.floor(85 + Math.random() * 15);
+          allDevices.push(device);
+        }
+      });
+    }
+
+    function updateCharts() {
+      // Update power chart
+      const totalPower = allDevices.reduce((sum, d) => sum + parseFloat(d.power), 0);
+      powerHistory.push({ time: Date.now(), power: totalPower });
+      if (powerHistory.length > 50) powerHistory.shift();
+
+      const powerCtx = document.getElementById('powerChart').getContext('2d');
+      drawPowerChart(powerCtx, powerHistory);
+
+      // Update status chart
+      const online = allDevices.filter(d => d.status === 'Online').length;
+      const offline = allDevices.filter(d => d.status === 'Offline').length;
+      const idle = Math.floor(offline * 0.8);
+      const error = offline - idle;
+
+      const statusCtx = document.getElementById('statusChart').getContext('2d');
+      drawDonutChart(statusCtx, { online, idle, error });
+    }
+
+    function updateInvertersTable() {
+      const table = document.getElementById('invertersTable');
+      const sorted = [...allDevices]
+        .filter(d => d.status === 'Online')
+        .sort((a, b) => parseFloat(b.power) - parseFloat(a.power))
+        .slice(0, 5);
+
+      if (sorted.length === 0) {
+        table.innerHTML = '<div class="table-placeholder"><p>Fetching device data...</p></div>';
+        return;
+      }
+
+      table.innerHTML = sorted.map(device => `
+        <div class="inverter-row">
+          <div class="inverter-info">
+            <span class="inverter-sn">${device.sn}</span>
+            <span class="inverter-status online">● Online</span>
+          </div>
+          <div class="inverter-metrics">
+            <div class="metric">
+              <span class="metric-value">${device.power}</span>
+              <span class="metric-label">Power Output</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value">${device.efficiency}%</span>
+              <span class="metric-label">Efficiency</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateTimer() {
+      // Timer logic if needed
+    }
+
+    function getElapsedTime() {
+      if (!startTime) return 'just now';
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      if (elapsed < 60) return `${elapsed} seconds ago`;
+      return `${Math.floor(elapsed / 60)} minutes ago`;
+    }
+
+    function toggleDevicesSection() {
+      const section = document.getElementById('devicesSection');
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+
+      if (section.style.display === 'block') {
+        renderDeviceGrid();
+      }
+    }
+
+    function renderDeviceGrid() {
+      const grid = document.getElementById('devicesGrid');
+      grid.innerHTML = allDevices.map(device => `
+        <div class="device-card ${device.status.toLowerCase()}" data-status="${device.status.toLowerCase()}">
+          <div class="device-sn">${device.sn}</div>
+          <div class="device-power">${device.power}</div>
+          <div class="device-status ${device.status.toLowerCase()}">${device.status}</div>
+        </div>
+      `).join('');
+    }
+
+    function filterDevices(filter) {
+      const buttons = document.querySelectorAll('.filter-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const cards = document.querySelectorAll('.device-card');
+      cards.forEach(card => {
+        if (filter === 'all') {
+          card.style.display = 'block';
+        } else {
+          card.style.display = card.dataset.status === filter ? 'block' : 'none';
+        }
+      });
+    }
+
+    async function resetState() {
+      await fetch('/api/reset', { method: 'POST' });
+      location.reload();
+    }
+
+    function resetUI() {
+      clearInterval(pollInterval);
+      clearInterval(timerInterval);
+      isAggregating = false;
+      document.getElementById('liveFeedBtn').classList.remove('active');
+      document.getElementById('liveFeedText').textContent = 'Live Feed';
+    }
+  </script>
+</body>
+
+</html>
