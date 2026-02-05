@@ -62,7 +62,10 @@ app.use('/device', (req, res, next) => {
         .digest("hex");
 
     if (signature !== expectedSig) {
-        console.log(`[401] Bad Signature. Got: ${signature}, Expected: ${expectedSig}`);
+        console.log(`[401] Bad Signature. Timestamp: ${timestamp}`);
+        console.log(`      Path: ${url}`);
+        console.log(`      Got: ${signature}`);
+        console.log(`      Expected: ${expectedSig}`);
         return res.status(401).json({ error: "Invalid Signature" });
     }
     next();
@@ -186,6 +189,8 @@ app.listen(PORT, () => {
     console.log('     EnergyGrid Data Aggregator - Production Server');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`\n🌐 Application running at: http://localhost:${PORT}`);
+    console.log(`📡 Internal API Base: ${config.API_BASE_URL}`);
+    console.log(`🔐 Front-end Allowed: ${process.env.FRONTEND_URL || '*'}`);
     console.log('   - Dashboard: /');
     console.log('   - API: /api/*');
     console.log('   - Mock Device API: /device/*\n');

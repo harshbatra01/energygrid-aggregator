@@ -6,6 +6,7 @@
  * - Retry logic with exponential backoff
  * - Error handling
  */
+const fetch = require('node-fetch');
 const config = require('../config');
 const { generateAuthHeaders } = require('./signatureGenerator');
 
